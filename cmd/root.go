@@ -17,7 +17,9 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
 
+	"github.com/mfojtik/oc-image-sync/pkg/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -30,6 +32,8 @@ var RootCmd = &cobra.Command{
 	Short: "Synchronize Docker image between registries/image streams",
 	Long: `Use this command to synchronize Docker image between multiple OpenShift
 image streams.
+
+Examples:
 
 # Export the image into a tar file from image stream:
 $ oc-image-sync export openshift/ruby:2.0 > ruby.tar
@@ -49,6 +53,11 @@ $ oc-image-sync export foo/bar:1.0 | oc-image-sync import foo/bar:1.0 --config p
 // Execute adds all child commands to the root command sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
+	if _, err := exec.LookPath("oc"); err != nil {
+		fmt.Println("ERROR: The OpenShift 'oc' binary must be installed in the PATH.")
+		fmt.Println(err)
+		os.Exit(-1)
+	}
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(-1)
@@ -58,14 +67,11 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
-	// Here you will define your flags and configuration settings.
-	// Cobra supports Persistent Flags, which, if defined here,
-	// will be global for your application.
-
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.oc-image-sync.yaml)")
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	RootCmd.PersistentFlags().StringVar(&config.User.Token, "token", "", "OpenShift OAuth access token (obtain using: '$ oc whoami -t')")
+	RootCmd.PersistentFlags().StringVar(&config.User.Path, "config", "", "Path to OpenShift config file (eg: './user.kubeconfig')")
+	RootCmd.PersistentFlags().StringVar(&config.User.ServerAddress, "address", "", "Docker registry address")
+	RootCmd.PersistentFlags().StringVar(&config.User.Username, "user", "", "Docker registry username")
+	RootCmd.PersistentFlags().StringVar(&config.User.Password, "password", "", "Docker registry password")
 }
 
 // initConfig reads in config file and ENV variables if set.

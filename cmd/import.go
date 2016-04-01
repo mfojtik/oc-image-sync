@@ -16,23 +16,36 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/mfojtik/oc-image-sync/pkg/docker"
+	"github.com/mfojtik/oc-image-sync/pkg/oc"
 	"github.com/spf13/cobra"
 )
 
 // importCmd represents the import command
 var importCmd = &cobra.Command{
 	Use:   "import",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Import the Docker image to the OpenShift image stream",
+	Long:  ``,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Work your own magic here
-		fmt.Println("import called")
+		if len(args) != 1 {
+			cmd.Help()
+			os.Exit(-1)
+		}
+		user, password, email, err := oc.GetDockerAuth()
+		if err != nil {
+			fmt.Printf("ERROR: Unable to get Docker image reference for image stream %q: %v", args[0], err)
+			os.Exit(1)
+		}
+		if err := docker.Login(oc.GetRegistryHostFromImage(ref), user, password, email); err != nil {
+			fmt.Printf("ERROR: Unable to login to Docker: %v", err)
+			os.Exit(1)
+		}
+		if err := docker.ImportImage(os.Stdin, ref); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to import image stream %q: %v", args[0], err)
+			os.Exit(1)
+		}
 	},
 }
 

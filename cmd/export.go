@@ -16,37 +16,53 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/mfojtik/oc-image-sync/pkg/docker"
+	"github.com/mfojtik/oc-image-sync/pkg/oc"
 	"github.com/spf13/cobra"
 )
 
 // exportCmd represents the export command
 var exportCmd = &cobra.Command{
 	Use:   "export",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
+	Short: "Export the Docker image from the OpenShift image stream",
+	Long: `Use this command to export Docker image from OpenShift image stream
 
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+Examples:
+
+# Export the image into a tar file from image stream:
+$ oc-image-sync export openshift/ruby:2.0 > ruby.tar
+
+# Export the image and import it to local Docker:
+$ oc-image-sync export openshift/ruby:2.0 | docker import -
+`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// TODO: Work your own magic here
-		fmt.Println("export called")
+		if len(args) != 1 {
+			cmd.Help()
+			os.Exit(-1)
+		}
+		ref, err := oc.GetDockerImageReference(args[0])
+		if err != nil {
+			fmt.Printf("ERROR: Unable to get Docker image reference for image stream %q: %v", args[0], err)
+			os.Exit(1)
+		}
+		user, password, email, err := oc.GetDockerAuth()
+		if err != nil {
+			fmt.Printf("ERROR: Unable to get Docker image reference for image stream %q: %v", args[0], err)
+			os.Exit(1)
+		}
+		if err := docker.Login(oc.GetRegistryHostFromImage(ref), user, password, email); err != nil {
+			fmt.Printf("ERROR: Unable to login to Docker: %v", err)
+			os.Exit(1)
+		}
+		if err := docker.ExportImage(ref); err != nil {
+			fmt.Fprintf(os.Stderr, "ERROR: Failed to export image stream %q: %v", args[0], err)
+			os.Exit(1)
+		}
 	},
 }
 
 func init() {
 	RootCmd.AddCommand(exportCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// exportCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// exportCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 }
